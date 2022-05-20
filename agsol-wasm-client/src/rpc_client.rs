@@ -8,14 +8,14 @@ use borsh::BorshDeserialize;
 use log::debug;
 use reqwest::header::CONTENT_TYPE;
 use serde::de::DeserializeOwned;
+
 use serde_json::json;
 use solana_program::pubkey::Pubkey;
 use solana_sdk::clock::{Slot, UnixTimestamp};
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::hash::Hash;
-use solana_sdk::signature::Signature;
-use solana_sdk::transaction::Transaction;
-use solana_transaction_status::TransactionStatus;
+use solana_sdk::{signature::Signature, transaction::Transaction};
+
 use std::str::FromStr;
 use std::thread::sleep;
 use std::time::Duration;
@@ -240,6 +240,9 @@ impl RpcClient {
             match self.config.commitment {
                 Some(CommitmentLevel::Processed) => {
                     solana_sdk::commitment_config::CommitmentLevel::Processed
+                }
+                Some(CommitmentLevel::Finalized) => {
+                    solana_sdk::commitment_config::CommitmentLevel::Finalized
                 }
                 _ => solana_sdk::commitment_config::CommitmentLevel::Confirmed,
             };
