@@ -11,11 +11,14 @@ use serde::de::DeserializeOwned;
 use serde_json::json;
 use solana_program::pubkey::Pubkey;
 use solana_sdk::clock::{Slot, UnixTimestamp};
+use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::hash::Hash;
 use solana_sdk::signature::Signature;
 use solana_sdk::transaction::Transaction;
-
+use solana_transaction_status::TransactionStatus;
 use std::str::FromStr;
+use std::thread::sleep;
+use std::time::Duration;
 
 /// Specifies which Solana cluster will be queried by the client.
 #[derive(Clone, Copy, Debug)]
@@ -188,6 +191,64 @@ impl RpcClient {
         let response: RpcResponse<RpcResultWithContext<Blockhash>> = self.send(request).await?;
         let blockhash = Hash::from_str(&response.result.value.blockhash)?;
         Ok(blockhash)
+    }
+
+    /// Submit a transaction and wait for confirmation.
+    ///
+    /// Once this function returns successfully, the given transaction is
+    /// guaranteed to be processed with the configured [commitment level][cl].
+    ///
+    /// [cl]: https://docs.solana.com/developing/clients/jsonrpc-api#configuring-state-commitment
+    ///
+    /// After sending the transaction, this method polls in a loop for the
+    /// status of the transaction until it has ben confirmed.
+    ///
+    pub async fn send_and_confirm_transaction(
+        &mut self,
+        transaction: &Transaction,
+    ) -> ClientResult<Signature> {
+        let signature = self.send_transaction(transaction).await?;
+
+        loop {
+            let status = self.get_signature_status(&signature).await?;
+            if status {
+                break;
+            }
+            sleep(Duration::from_millis(500));
+        }
+
+        Ok(signature)
+    }
+
+    /// Check if a transaction has been processed with the given [commitment level][cl].
+    ///
+    /// [cl]: https://docs.solana.com/developing/clients/jsonrpc-api#configuring-state-commitment
+    ///
+    /// If the transaction has been processed with the given commitment level,
+    /// then this method returns `Ok` of `Some`. If the transaction has not yet
+    /// been processed with the given commitment level, it returns `Ok` of
+    /// `None`.
+    pub async fn get_signature_status(&mut self, signature: &Signature) -> ClientResult<bool> {
+        let request = RpcRequest::GetSignatureStatuses
+            .build_request_json(self.request_id, json!([[signature.to_string()]]))
+            .to_string();
+
+        let response: RpcResponse<RpcResultWithContext<Vec<Option<TransactionStatus>>>> =
+            self.send(request).await?;
+
+        let commitment: solana_sdk::commitment_config::CommitmentLevel =
+            match self.config.commitment {
+                Some(CommitmentLevel::Processed) => {
+                    solana_sdk::commitment_config::CommitmentLevel::Processed
+                }
+                _ => solana_sdk::commitment_config::CommitmentLevel::Confirmed,
+            };
+
+        Ok(response.result.value[0]
+            .as_ref()
+            .filter(|result| result.satisfies_commitment(CommitmentConfig { commitment }))
+            .map(|result| result.status.is_ok())
+            .unwrap_or_default())
     }
 
     /// Attempts to send a signed transaction to the ledger without simulating
@@ -371,6 +432,54 @@ mod test {
         let recent_blockhash = client.get_latest_blockhash().await.unwrap();
         let transfer_tx = transfer(&alice, &bob.pubkey(), TRANSFER_AMOUNT, recent_blockhash);
         client.send_transaction(&transfer_tx).await.unwrap();
+
+        wait_for_balance_change(
+            &mut client,
+            &bob.pubkey(),
+            balance_before_bob,
+            TRANSFER_AMOUNT,
+        )
+        .await;
+
+        wait_for_balance_change(
+            &mut client,
+            &alice.pubkey(),
+            balance_before_airdrop_alice,
+            TRANSFER_AMOUNT, // also losing the 5000 lamport fee
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn airdrop_and_transfer_with_confirm() {
+        let alice = Keypair::from_bytes(ALICE).unwrap();
+        let bob = Keypair::from_bytes(BOB).unwrap();
+        let mut client = RpcClient::new(Net::Devnet);
+
+        let balance_before_airdrop_alice = client.get_balance(&alice.pubkey()).await.unwrap();
+        let latest_blockhash = client.get_latest_blockhash().await.unwrap();
+
+        client
+            .request_airdrop(&alice.pubkey(), AIRDROP_AMOUNT, &latest_blockhash)
+            .await
+            .unwrap();
+
+        wait_for_balance_change(
+            &mut client,
+            &alice.pubkey(),
+            balance_before_airdrop_alice,
+            AIRDROP_AMOUNT,
+        )
+        .await;
+
+        let balance_before_bob = client.get_balance(&bob.pubkey()).await.unwrap();
+
+        let recent_blockhash = client.get_latest_blockhash().await.unwrap();
+        let transfer_tx = transfer(&alice, &bob.pubkey(), TRANSFER_AMOUNT, recent_blockhash);
+        client
+            .send_and_confirm_transaction(&transfer_tx)
+            .await
+            .unwrap();
 
         wait_for_balance_change(
             &mut client,
