@@ -103,6 +103,19 @@ impl RpcClient {
         //todo!();
     }
 
+    /// Returns the decoded contents of multiple Solana accounts.
+    pub async fn get_multiple_accounts(
+        &mut self,
+        pubkeys: &[Pubkey],
+    ) -> ClientResult<Vec<Account>> {
+        let pubkeys: Vec<_> = pubkeys.iter().map(|pubkey| pubkey.to_string()).collect();
+        let request = RpcRequest::GetMultipleAccounts
+            .build_request_json(self.request_id, json!([pubkeys, self.config]))
+            .to_string();
+        let response: RpcResponse<RpcResultWithContext<Vec<Account>>> = self.send(request).await?;
+        Ok(response.result.value)
+    }
+
     /// Attempts to deserialize the contents of an account's data field into a
     /// given type using the Borsh deserialization framework.
     pub async fn get_and_deserialize_account_data<T: BorshDeserialize>(
@@ -628,5 +641,32 @@ mod test {
             "gcadHFMc51A2fFzppTQ6DgmLNymatHjGwENZSkJpJNr"
         );
         assert_ne!(contract_state.admin, contract_state.wd_auth);
+    }
+
+    #[tokio::test]
+    async fn get_multiple_accounts() {
+        let mut client = RpcClient::new(Net::Mainnet);
+        client.set_commitment(Some(CommitmentLevel::Processed));
+
+        let token_program_id =
+            Pubkey::from_str("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA").unwrap();
+
+        let contract_pubkey =
+            Pubkey::from_str("21d8ssndpeW5mw1EMqVZRNHnJhUfuWkKL7QomWF87LBK").unwrap();
+
+        let accounts = client
+            .get_multiple_accounts(&[token_program_id, contract_pubkey])
+            .await
+            .unwrap();
+        assert_eq!(
+            accounts[0].owner,
+            "BPFLoader2111111111111111111111111111111111"
+        );
+        assert!(accounts[0].executable);
+        assert_eq!(
+            accounts[1].owner,
+            "go1dcKcvafq8SDwmBKo6t2NVzyhvTEZJkMwnnfae99U"
+        );
+        assert!(!accounts[1].executable);
     }
 }
