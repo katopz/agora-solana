@@ -12,7 +12,7 @@ use serde::Deserialize;
 use solana_program::borsh::try_from_slice_unchecked;
 
 /// The (partial) contents of a Solana account.
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Account {
     /// Account balance in Lamports.
@@ -27,7 +27,7 @@ pub struct Account {
     pub rent_epoch: u64,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", untagged)]
 pub enum AccountData {
     Encoded(String, Encoding),
@@ -60,7 +60,7 @@ impl AccountData {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct ParsedAccount {
     pub parsed: serde_json::Value,
     pub program: String,

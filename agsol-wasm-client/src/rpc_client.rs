@@ -136,6 +136,19 @@ impl RpcClient {
         account.data.parse_into_json::<T>()
     }
 
+    /// Attempts to deserialize the contents of multiple account's data field into a
+    /// given type using the Borsh deserialization framework.
+    pub async fn get_and_deserialize_multiple_accounts_data<T: BorshDeserialize>(
+        &mut self,
+        account_pubkeys: &[Pubkey],
+    ) -> Vec<ClientResult<T>> {
+        let accounts = self.get_multiple_accounts(account_pubkeys).await.unwrap();
+        accounts
+            .iter()
+            .map(|account| account.data.clone().parse_into_borsh::<T>())
+            .collect::<Vec<_>>()
+    }
+
     /// Returns the owner of the account.
     pub async fn get_owner(&mut self, account_pubkey: &Pubkey) -> ClientResult<Pubkey> {
         let account = self.get_account(account_pubkey).await?;
