@@ -447,55 +447,7 @@ mod test {
 
         let recent_blockhash = client.get_latest_blockhash().await.unwrap();
         let transfer_tx = transfer(&alice, &bob.pubkey(), TRANSFER_AMOUNT, recent_blockhash);
-        client.send_transaction(&transfer_tx).await.unwrap();
-
-        wait_for_balance_change(
-            &mut client,
-            &bob.pubkey(),
-            balance_before_bob,
-            TRANSFER_AMOUNT,
-        )
-        .await;
-
-        wait_for_balance_change(
-            &mut client,
-            &alice.pubkey(),
-            balance_before_airdrop_alice,
-            TRANSFER_AMOUNT, // also losing the 5000 lamport fee
-        )
-        .await;
-    }
-
-    #[tokio::test]
-    async fn airdrop_and_transfer_with_confirm() {
-        let alice = Keypair::from_bytes(ALICE).unwrap();
-        let bob = Keypair::from_bytes(BOB).unwrap();
-        let mut client = RpcClient::new(Net::Devnet);
-
-        let balance_before_airdrop_alice = client.get_balance(&alice.pubkey()).await.unwrap();
-        let latest_blockhash = client.get_latest_blockhash().await.unwrap();
-
-        client
-            .request_airdrop(&alice.pubkey(), AIRDROP_AMOUNT, &latest_blockhash)
-            .await
-            .unwrap();
-
-        wait_for_balance_change(
-            &mut client,
-            &alice.pubkey(),
-            balance_before_airdrop_alice,
-            AIRDROP_AMOUNT,
-        )
-        .await;
-
-        let balance_before_bob = client.get_balance(&bob.pubkey()).await.unwrap();
-
-        let recent_blockhash = client.get_latest_blockhash().await.unwrap();
-        let transfer_tx = transfer(&alice, &bob.pubkey(), TRANSFER_AMOUNT, recent_blockhash);
-        client
-            .send_and_confirm_transaction(&transfer_tx)
-            .await
-            .unwrap();
+        client.send_transaction(&transfer_tx).await.unwrap(); // Or send_and_confirm_transaction
 
         wait_for_balance_change(
             &mut client,
