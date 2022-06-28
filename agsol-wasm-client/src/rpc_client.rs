@@ -1,3 +1,5 @@
+use crate::account::TokenAccount;
+
 use super::account::Account;
 use super::rpc_config::*;
 use super::rpc_request::RpcRequest;
@@ -72,7 +74,7 @@ impl RpcClient {
         self.config.commitment = commitment;
     }
 
-    async fn send<T: DeserializeOwned, R: Into<reqwest::Body>>(
+    pub async fn send<T: DeserializeOwned, R: Into<reqwest::Body>>(
         &mut self,
         request: R,
     ) -> reqwest::Result<T> {
@@ -114,6 +116,12 @@ impl RpcClient {
             .to_string();
         let response: RpcResponse<RpcResultWithContext<Vec<Account>>> = self.send(request).await?;
         Ok(response.result.value)
+    }
+
+    pub async fn get_token_account(&mut self, pubkey: &Pubkey) -> ClientResult<TokenAccount> {
+        Ok(self
+            .get_and_deserialize_parsed_account_data::<TokenAccount>(&pubkey)
+            .await?)
     }
 
     /// Attempts to deserialize the contents of an account's data field into a

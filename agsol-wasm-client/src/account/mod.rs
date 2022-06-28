@@ -8,11 +8,11 @@ use crate::rpc_config::Encoding;
 use anyhow::bail;
 use borsh::BorshDeserialize;
 use serde::de::DeserializeOwned;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use solana_program::borsh::try_from_slice_unchecked;
 
 /// The (partial) contents of a Solana account.
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Account {
     /// Account balance in Lamports.
@@ -27,7 +27,7 @@ pub struct Account {
     pub rent_epoch: u64,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", untagged)]
 pub enum AccountData {
     Encoded(String, Encoding),
@@ -60,11 +60,18 @@ impl AccountData {
     }
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ParsedAccount {
     pub parsed: serde_json::Value,
     pub program: String,
     pub space: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RpcKeyedAccount {
+    pub pubkey: String,
+    pub account: Account,
 }
 
 #[cfg(test)]

@@ -35,7 +35,7 @@ pub mod account;
 mod rpc_client;
 pub mod rpc_config;
 pub mod rpc_request;
-mod rpc_response;
+pub mod rpc_response;
 
 pub use rpc_client::*;
 
