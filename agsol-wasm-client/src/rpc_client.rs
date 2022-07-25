@@ -48,7 +48,7 @@ pub type ClientResult<T> = Result<T, anyhow::Error>;
 pub struct RpcClient {
     client: reqwest::Client,
     config: RpcConfig,
-    net: Net,
+    pub net: Net,
     request_id: u64,
 }
 
@@ -103,6 +103,18 @@ impl RpcClient {
         //let response: serde_json::Value = self.send(request).await?;
         //println!("{:#?}", response);
         //todo!();
+    }
+
+    /// Returns the account data of a Solana account.
+    pub async fn get_account_data(&mut self, account_pubkey: &Pubkey) -> ClientResult<Vec<u8>> {
+        let request = RpcRequest::GetAccountInfo
+            .build_request_json(
+                self.request_id,
+                json!([account_pubkey.to_string(), self.config]),
+            )
+            .to_string();
+        let response: RpcResponse<RpcResultWithContext<Account>> = self.send(request).await?;
+        response.result.value.data.parse_into_vec()
     }
 
     /// Returns the decoded contents of multiple Solana accounts.

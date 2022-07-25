@@ -35,6 +35,21 @@ pub enum AccountData {
 }
 
 impl AccountData {
+    pub fn parse_into_vec(self) -> Result<Vec<u8>, anyhow::Error> {
+        match self {
+            Self::Encoded(data_string, encoding) => {
+                let decoded = match encoding {
+                    Encoding::Base64 => base64::decode(data_string)?,
+                    _ => {
+                        bail!("encoding {:?} is not implemented", encoding)
+                    }
+                };
+                Ok(decoded)
+            }
+            _ => bail!("cannot parse data"),
+        }
+    }
+
     pub fn parse_into_borsh<T: BorshDeserialize>(self) -> Result<T, anyhow::Error> {
         match self {
             Self::Encoded(data_string, encoding) => {
