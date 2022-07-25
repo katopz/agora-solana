@@ -130,6 +130,26 @@ impl RpcClient {
         Ok(response.result.value)
     }
 
+    /// Returns the decoded contents data of multiple Solana accounts.
+    pub async fn get_multiple_accounts_datas(
+        &mut self,
+        pubkeys: &[Pubkey],
+    ) -> ClientResult<Vec<Vec<u8>>> {
+        let pubkeys: Vec<_> = pubkeys.iter().map(|pubkey| pubkey.to_string()).collect();
+        let request = RpcRequest::GetMultipleAccounts
+            .build_request_json(self.request_id, json!([pubkeys, self.config]))
+            .to_string();
+        let response: RpcResponse<RpcResultWithContext<Vec<Account>>> = self.send(request).await?;
+        let data = response
+            .result
+            .value
+            .iter()
+            .map(|v| v.data.to_owned().parse_into_vec().unwrap())
+            .collect::<Vec<_>>();
+
+        Ok(data)
+    }
+
     pub async fn get_token_account(&mut self, pubkey: &Pubkey) -> ClientResult<TokenAccount> {
         Ok(self
             .get_and_deserialize_parsed_account_data::<TokenAccount>(&pubkey)
