@@ -121,12 +121,13 @@ impl RpcClient {
     pub async fn get_multiple_accounts(
         &mut self,
         pubkeys: &[Pubkey],
-    ) -> ClientResult<Vec<Account>> {
+    ) -> ClientResult<Vec<Option<Account>>> {
         let pubkeys: Vec<_> = pubkeys.iter().map(|pubkey| pubkey.to_string()).collect();
         let request = RpcRequest::GetMultipleAccounts
             .build_request_json(self.request_id, json!([pubkeys, self.config]))
             .to_string();
-        let response: RpcResponse<RpcResultWithContext<Vec<Account>>> = self.send(request).await?;
+        let response: RpcResponse<RpcResultWithContext<Vec<Option<Account>>>> =
+            self.send(request).await?;
         Ok(response.result.value)
     }
 
@@ -177,16 +178,49 @@ impl RpcClient {
     }
 
     /// Attempts to deserialize the contents of multiple account's data field into a
+    /// given type using the Json deserialization framework.
+    pub async fn get_and_deserialize_multiple_parsed_accounts_data<T: DeserializeOwned>(
+        &mut self,
+        account_pubkeys: &[Pubkey],
+    ) -> ClientResult<Vec<Option<T>>> {
+        println!("account_pubkeys:{:#?}", account_pubkeys);
+        let accounts = self.get_multiple_accounts(account_pubkeys).await;
+        Ok(match accounts {
+            Ok(accounts) => accounts
+                .into_iter()
+                .map(|account| match account {
+                    Some(account) => Some(account.data.parse_into_json::<T>().unwrap()),
+                    None => None,
+                })
+                .collect::<Vec<_>>(),
+            Err(error) => {
+                println!("{:?}", error);
+                panic!("error");
+            }
+        })
+    }
+
+    /// Attempts to deserialize the contents of multiple account's data field into a
     /// given type using the Borsh deserialization framework.
     pub async fn get_and_deserialize_multiple_accounts_data<T: BorshDeserialize>(
         &mut self,
         account_pubkeys: &[Pubkey],
-    ) -> Vec<ClientResult<T>> {
-        let accounts = self.get_multiple_accounts(account_pubkeys).await.unwrap();
-        accounts
-            .iter()
-            .map(|account| account.data.clone().parse_into_borsh::<T>())
-            .collect::<Vec<_>>()
+    ) -> ClientResult<Vec<Option<T>>> {
+        let accounts = self.get_multiple_accounts(account_pubkeys).await;
+
+        Ok(match accounts {
+            Ok(accounts) => accounts
+                .into_iter()
+                .map(|account| match account {
+                    Some(account) => Some(account.data.parse_into_borsh::<T>().unwrap()),
+                    None => None,
+                })
+                .collect::<Vec<_>>(),
+            Err(error) => {
+                println!("{:?}", error);
+                panic!("error");
+            }
+        })
     }
 
     /// Returns the owner of the account.
@@ -664,14 +698,14 @@ mod test {
             .await
             .unwrap();
         assert_eq!(
-            accounts[0].owner,
+            accounts[0].to_owned().unwrap().owner,
             "BPFLoader2111111111111111111111111111111111"
         );
-        assert!(accounts[0].executable);
+        assert!(accounts[0].to_owned().unwrap().executable);
         assert_eq!(
-            accounts[1].owner,
+            accounts[1].to_owned().unwrap().owner,
             "go1dcKcvafq8SDwmBKo6t2NVzyhvTEZJkMwnnfae99U"
         );
-        assert!(!accounts[1].executable);
+        assert!(!accounts[1].to_owned().unwrap().executable);
     }
 }
