@@ -4,6 +4,7 @@ use super::account::Account;
 use super::rpc_config::*;
 use super::rpc_request::RpcRequest;
 use super::rpc_response::*;
+use super::utils::sleep;
 
 use anyhow::bail;
 use borsh::BorshDeserialize;
@@ -19,8 +20,6 @@ use solana_sdk::hash::Hash;
 use solana_sdk::{signature::Signature, transaction::Transaction};
 
 use std::str::FromStr;
-use std::thread::sleep;
-use std::time::Duration;
 
 /// Specifies which Solana cluster will be queried by the client.
 #[derive(Clone, Copy, Debug)]
@@ -314,7 +313,7 @@ impl RpcClient {
             if status {
                 break;
             }
-            sleep(Duration::from_millis(500));
+            sleep(500).await;
         }
 
         Ok(signature)
@@ -489,7 +488,7 @@ mod test {
             // transferred the amount to BOB
             match balance_after.checked_sub(balance_before) {
                 Some(0) => {
-                    std::thread::sleep(std::time::Duration::from_secs(1));
+                    sleep(1000).await;
                     i += 1;
                     dbg!(i);
                 }
@@ -567,7 +566,7 @@ mod test {
                 .as_secs() as i64;
             let delta_time = (time - block_time) as f32;
             assert!(delta_time.abs() < 60.0); // we are within one minute
-            std::thread::sleep(Duration::from_secs(1));
+            sleep(1000).await;
         }
     }
 

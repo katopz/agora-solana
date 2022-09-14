@@ -1,4 +1,5 @@
 use agsol_wasm_client::rpc_config::{CommitmentLevel, Encoding, RpcConfig};
+use agsol_wasm_client::utils::sleep;
 use agsol_wasm_client::{Net, RpcClient};
 
 #[tokio::main]
@@ -14,6 +15,6 @@ async fn main() {
         let block_time = client.get_block_time(slot).await.unwrap();
 
         println!("{}", block_time);
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        sleep(1000).await;
     }
 }

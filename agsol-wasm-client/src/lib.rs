@@ -45,3 +45,5 @@ pub use rpc_client::*;
 extern crate agsol_wasm_factory;
 #[cfg(any(test, feature = "wasm-factory"))]
 pub use agsol_wasm_factory::*;
+
+pub mod utils;
